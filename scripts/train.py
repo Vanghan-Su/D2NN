@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import argparse
+from datetime import datetime
 import sys
 
 import torch
@@ -44,7 +45,7 @@ def parse_args():
     parser.add_argument("--limit", type=int, default=128)
     parser.add_argument("--max-batches", type=int, default=None)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
-    parser.add_argument("--output-dir", default="outputs/smoke_training")
+    parser.add_argument("--output-dir", default=None)
     parser.add_argument("--seed", type=int, default=20261012)
     return parser.parse_args()
 
@@ -131,6 +132,19 @@ def main() -> None:
     print(f"detector_spacing_mm={args.detector_spacing_mm}")
     print(f"optimize_amplitude={args.optimize_amplitude}")
 
+    run_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    optimization_slug = "phase-amplitude" if args.optimize_amplitude else "phase-only"
+    run_slug = (
+        f"{args.dataset}_{args.layer_spacing_mm:g}mm_"
+        f"{args.padded_size}pad_{optimization_slug}_"
+        f"{args.phase_init}-init_{args.limit}samples_"
+        f"{args.epochs}epochs"
+    )
+    output_dir = args.output_dir or f"outputs/{run_timestamp}_{run_slug}"
+    checkpoint_name = f"{run_timestamp}_{run_slug}_last.pt"
+    print(f"output_dir={output_dir}")
+    print(f"checkpoint_name={checkpoint_name}")
+
     initial_phases = None
     if args.phase_init == "zero":
         initial_phases = torch.zeros(
@@ -153,7 +167,8 @@ def main() -> None:
         validation_loader=validation_loader,
         train_config=train_config,
         device=device,
-        output_dir=args.output_dir,
+        output_dir=output_dir,
+        checkpoint_name=checkpoint_name,
     )
 
 

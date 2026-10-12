@@ -1,8 +1,9 @@
-﻿"""Zero-padding convergence scan for the full-size D2NN forward model."""
+"""Zero-padding convergence scan for the full-size D2NN forward model."""
 
 from pathlib import Path
 import argparse
 import csv
+from datetime import datetime
 from dataclasses import replace
 import sys
 import time
@@ -29,7 +30,7 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=20261012)
     parser.add_argument(
         "--output",
-        default="outputs/padding_convergence.csv",
+        default=None,
     )
     return parser.parse_args()
 
@@ -142,7 +143,15 @@ def main() -> None:
             flush=True,
         )
 
-    output_path = Path(args.output)
+    if args.output is None:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output_path = Path(
+            f"outputs/{timestamp}_padding-convergence_"
+            f"{base_config.layer_spacing_m * 1.0e3:g}mm_"
+            f"{min(sizes)}-{max(sizes)}pad.csv"
+        )
+    else:
+        output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))

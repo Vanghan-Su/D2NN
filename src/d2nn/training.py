@@ -120,6 +120,7 @@ def fit(
     train_config: TrainConfig,
     device: torch.device,
     output_dir: Optional[str] = None,
+    checkpoint_name: str = "last_checkpoint.pt",
 ) -> list:
     torch.manual_seed(train_config.seed)
     if device.type == "cuda":
@@ -169,6 +170,6 @@ def fit(
                 "train_config": train_config.__dict__,
                 "history": history,
             }
-            torch.save(checkpoint, output_path / "last_checkpoint.pt")
+            torch.save(checkpoint, output_path / checkpoint_name)
 
     return history

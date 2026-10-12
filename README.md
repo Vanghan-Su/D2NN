@@ -1,40 +1,40 @@
-﻿# D2NN 鑷敱绌洪棿鍏ㄨ繛鎺ュ厜瀛︾缁忕綉缁滀豢鐪?
+# D2NN 自由空间全连接光学神经网络仿真
 
-褰撳墠浠ｇ爜瀹炵幇浜嗗彲楠岃瘉鐨勪豢鐪熷唴鏍革紝榛樿灞傞棿璺濅负 5 mm锛屽苟鍙仈鍚堜紭鍖栫浉浣嶅拰鎸箙锛?
+当前代码实现了可验证的仿真内核，默认层间距为 5 mm，并可联合优化相位和振幅：
 
-- 澶嶆暟瑙掕氨浼犳挱锛?
-- 涓績闆跺～鍏呬笌瑁佸壀锛?
-- 5 灞傜浉浣?鎸箙鍙井鍓嶅悜妯″瀷锛?
-- 10 涓煩褰㈡帰娴嬪尯鍩熺殑绉垎鍏夊己璁＄畻锛?
-- 鍒嗙被銆佹眹鑱氭晥鐜?eta銆佸姣斿害锛?
-- NumPy 鍙傝€冨疄鐜板拰 PyTorch 鍙井瀹炵幇锛?
-- 瑙掕氨鑳介噺瀹堟亽銆佹帰娴嬪尯銆丯umPy/PyTorch 涓€鑷存€у拰姊害鍐掔儫娴嬭瘯銆?
+- 复数角谱传播；
+- 中心零填充与裁剪；
+- 5 层相位/振幅可微前向模型；
+- 10 个矩形探测区域的积分光强计算；
+- 分类、汇聚效率 eta、对比度；
+- NumPy 参考实现和 PyTorch 可微实现；
+- 角谱能量守恒、探测区、NumPy/PyTorch 一致性和梯度测试。
 
-## 鐞嗚淇
+## 理论修正
 
-鏂规鏂囨。绗?4 鑺傚皢绗?k 涓帰娴嬪尯鍩熺殑娴嬮噺閲忓畾涔変负绉垎鍏夊己锛?
+方案文档第 4 节将探测量定义为积分光强：
 
 `sk = sum_{(x,y) in Dk} |Udet(x,y)|^2`
 
-绗?7 鑺傛帹瀵兼搴︽椂鎶婂悓涓€閲忓啓鎴愬尯鍩熷唴澶嶆尟骞呬箣鍜岀殑妯℃柟 `|sum U|^2`銆備袱鑰呭彧鏈夊湪鍖哄煙鍐呮墍鏈夊鎸箙鍚岀浉鏃舵墠杩戜技涓€鑷达紝涓€鑸帰娴嬪櫒娴嬮噺鐨勬槸閫愮偣鍏夊己绉垎銆傚洜姝ゆ湰浠ｇ爜榛樿閲囩敤锛?
+第 7 节推导梯度时使用了复振幅之和的模方 `|sum U|^2`。两者在区域内相位不一致时并不相等，因此本代码默认采用逐点光强积分：
 
 `sk = sum |U|^2`
 
-姊害浣跨敤 PyTorch autograd 浠庤鐗╃悊瀹氫箟鐩存帴璁＄畻銆?
+梯度由 PyTorch autograd 从该物理定义直接计算。
 
-## 鏈湴杩愯鐜
+## 本地运行环境
 
-宸查獙璇佸彲鐢ㄧ殑鐜锛?
+已验证可用的环境：
 
-- Python 3.8.2锛?
-- torch 2.2.2+cu121锛?
-- torchvision 0.17.2+cu121锛?
-- NumPy 1.24.4锛?
-- SciPy 1.10.1锛?
-- GPU锛歂VIDIA GeForce RTX 3060 Laptop锛? GB锛?
-- PyTorch CUDA 鍙敤銆?
+- Python 3.8.2；
+- torch 2.2.2+cu121；
+- torchvision 0.17.2+cu121；
+- NumPy 1.24.4；
+- SciPy 1.10.1；
+- GPU：NVIDIA GeForce RTX 3060 Laptop，6 GB；
+- PyTorch CUDA 可用。
 
-杩愯锛?
+运行：
 
 ```powershell
 & 'E:\codes\env\STME-main\Scripts\python.exe' -m unittest discover -s tests -v
@@ -42,29 +42,39 @@
 & 'E:\codes\env\STME-main\Scripts\python.exe' scripts\train.py --dataset mnist --data-root data --phase-init zero --padded-size 4096 --layer-spacing-mm 5 --detector-spacing-mm 10 --limit 8 --max-batches 2 --micro-batch-size 2 --effective-batch-size 4 --epochs 1 --device cuda
 ```
 
-## 鐩綍
+## 目录
 
-- `src/d2nn/`锛氱墿鐞嗘牳銆佹帰娴嬪櫒銆丯umPy 鍜?PyTorch 妯″瀷锛?
-- `tests/`锛氭暟鍊煎拰姊害楠岃瘉锛?
-- `scripts/`锛氱鍒扮鍐掔儫娴嬭瘯銆佹樉瀛樺熀鍑嗗拰璁粌鍏ュ彛锛?
-- `docs/`锛氭柟妗堝垎鏋愩€佺悊璁轰慨姝ｃ€侀浂濉厖鏀舵暃銆丮NIST 棣栬疆璁粌鍜?5 mm/鎸箙浼樺寲鍙樻洿銆?
+- `src/d2nn/`：物理核、探测器、NumPy 和 PyTorch 模型；
+- `tests/`：数值和梯度验证；
+- `scripts/`：端到端冒烟测试、显存基准、绘图和训练入口；
+- `docs/`：方案分析、理论修正、零填充收敛、MNIST 首轮训练和 5 mm/振幅优化变更。
 
-## 濉厖绛栫暐
+## 填充策略
 
-- `Npad=2048`锛氶€熷害浼樺厛鐨勫巻鍙茶繎浼煎€硷紝鏈夐檺瀛斿緞澶氬眰绾х粨鏋滀笉鍙俊锛?
-- `Npad=4096`锛? mm 灞傞棿璺濅笅鐨勫綋鍓嶆湰鍦拌缁冮厤缃紝micro-batch=2锛?
-- `Npad=6144`锛氬彲閫夐珮绮惧害鍙傝€冮厤缃紝micro-batch=1锛?
-- 瀹屾暣鎺ㄥ鍜屽疄娴嬭 `docs/闆跺～鍏呮敹鏁涚粨璁?md`銆?
+- `Npad=2048`：速度优先的历史近似值，有限孔径多层级结果不可信；
+- `Npad=4096`：5 mm 层间距下的当前本地训练配置，micro-batch=2；
+- `Npad=6144`：可选高精度参考配置，micro-batch=1；
+- 完整推导和实测见 `docs/20261012-170839_convergence_零填充收敛结论.md`。
 
-## 鐩镐綅涓庢尟骞呬紭鍖?
+## 相位与振幅优化
 
-璁粌鍏ュ彛榛樿鍚屾椂浼樺寲鐩镐綅鍜屾尟骞呫€傛尟骞呴€氳繃 sigmoid 绾︽潫鍦ㄧ墿鐞嗛€忚繃鐜囪寖鍥?`(0, 1)`銆傚鍔?`--phase-only` 鍙仮澶嶇函鐩镐綅妯″紡銆?
+训练入口默认同时优化相位和振幅。振幅通过 sigmoid 约束在物理透过率范围 `(0, 1)`。增加 `--phase-only` 可恢复纯相位模式。
 
-## 璁粌缁撴灉
+## 训练结果
 
-- [5 mm 灞傞棿璺濈浉浣?鎸箙璁粌缁撴灉](docs/5mm鐩镐綅鎸箙璁粌缁撴灉.md)
+- [5 mm 层间距相位/振幅训练结果](docs/20261012-172422_result_5mm相位振幅训练结果.md)
+
+## 命名规范
+
+文档和实验输出采用可排序的时间戳前缀：
+
+`YYYYMMDD-HHMMSS_<类别>_<修改内容>`。
+
+- 文档：`docs/YYYYMMDD-HHMMSS_<类别>_<内容>.md`
+- 图片：`docs/assets/YYYYMMDD-HHMMSS_<figure|result>_<实验参数>_<内容>.png`
+- 输出目录：`outputs/YYYYMMDD-HHMMSS_<dataset>_<geometry>_<optimization>_<samples>samples_<epochs>epochs`
+- checkpoint：`YYYYMMDD-HHMMSS_<run-description>_<last|best|epochNNN>.pt`
 
 ## 版本保存
 
-每次修改都会创建新的 Git commit 并推送到 GitHub，不覆盖已发布历史。完整版本记录见 [VERSIONS.md](VERSIONS.md)。
-
+每次修改都会创建新的 Git commit 并推送到 GitHub，不覆盖已发布历史。只有功能性代码、物理模型、优化行为或重大实验里程碑才创建 tag。完整版本记录见 [VERSIONS.md](VERSIONS.md)。

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import argparse
+from datetime import datetime
 import sys
 
 import matplotlib
@@ -24,17 +25,17 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--checkpoint",
-        default="outputs/mnist_overfit_zero_32/last_checkpoint.pt",
+        default="outputs/20261012-171952_mnist_5mm_4096pad_phase-amplitude_zero-init_32samples_10epochs/20261012-171952_mnist_5mm_4096pad_phase-amplitude_zero-init_32samples_10epochs_last.pt",
     )
     parser.add_argument("--sample-index", type=int, default=11)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--padded-size", type=int, default=4096)
-    parser.add_argument("--layer-spacing-mm", type=float, default=10.0)
+    parser.add_argument("--layer-spacing-mm", type=float, default=5.0)
     parser.add_argument("--detector-spacing-mm", type=float, default=10.0)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cuda")
     parser.add_argument(
         "--output",
-        default="docs/assets/mnist_zero_32_output_intensity.png",
+        default=None,
     )
     return parser.parse_args()
 
@@ -155,7 +156,14 @@ def main() -> None:
     )
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
 
-    output_path = Path(args.output)
+    if args.output is None:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        checkpoint_stem = Path(args.checkpoint).stem
+        output_path = Path(
+            f"docs/assets/{timestamp}_result_{checkpoint_stem}_output-intensity.png"
+        )
+    else:
+        output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
     fig.savefig(output_path.with_suffix(".pdf"), bbox_inches="tight")
