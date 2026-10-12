@@ -165,6 +165,7 @@ def fit(
                 "epoch": record["epoch"],
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
+                "simulation_config": model.config,
                 "train_config": train_config.__dict__,
                 "history": history,
             }

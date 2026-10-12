@@ -1,4 +1,4 @@
-﻿"""Plot the detector-plane intensity with labelled red detector regions."""
+"""Plot the detector-plane intensity with labelled red detector regions."""
 
 from pathlib import Path
 import argparse
@@ -29,6 +29,8 @@ def parse_args():
     parser.add_argument("--sample-index", type=int, default=11)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--padded-size", type=int, default=4096)
+    parser.add_argument("--layer-spacing-mm", type=float, default=10.0)
+    parser.add_argument("--detector-spacing-mm", type=float, default=10.0)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cuda")
     parser.add_argument(
         "--output",
@@ -82,10 +84,23 @@ def main() -> None:
         raise RuntimeError("CUDA requested but unavailable")
 
     device = torch.device(args.device)
-    config = SimulationConfig(padded_size=args.padded_size)
+    config = SimulationConfig(
+        padded_size=args.padded_size,
+        layer_spacing_m=args.layer_spacing_mm * 1.0e-3,
+        detector_spacing_m=args.detector_spacing_mm * 1.0e-3,
+    )
     checkpoint = torch.load(args.checkpoint, map_location="cpu")
-    model = TorchD2NN(config)
-    model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+    if "simulation_config" in checkpoint:
+        config = checkpoint["simulation_config"]
+    state_dict = checkpoint["model_state_dict"]
+    has_trainable_amplitude = any(
+        key.startswith("amplitude_logits") for key in state_dict
+    )
+    model = TorchD2NN(
+        config,
+        train_amplitude=has_trainable_amplitude,
+    )
+    model.load_state_dict(state_dict, strict=True)
     model = model.to(device).eval()
 
     dataset = build_mnist_dataset(

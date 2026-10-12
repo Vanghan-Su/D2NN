@@ -3,7 +3,7 @@
   "pixel_size_m": 2.5e-6,
   "field_size": 400,
   "layer_count": 5,
-  "layer_spacing_m": 0.01,
+  "layer_spacing_m": 0.005,
   "detector_spacing_m": 0.01,
   "padded_size": 4096,
   "amplitude_transmission": 1.0,

@@ -1,10 +1,10 @@
 # D2NN 自由空间全连接光学神经网络仿真
 
-当前代码实现了第一阶段的可验证仿真内核：
+当前代码实现了可验证的仿真内核，默认层间距为 5 mm，并可联合优化相位和振幅：
 
 - 复数角谱传播；
 - 中心零填充与裁剪；
-- 5 层相位-only 前向模型；
+- 5 层相位/振幅可微前向模型；
 - 10 个矩形探测区域的积分光强计算；
 - 分类、汇聚效率 eta、对比度；
 - NumPy 参考实现和 PyTorch 可微实现；
@@ -39,7 +39,7 @@
 ```powershell
 & 'E:\codes\env\STME-main\Scripts\python.exe' -m unittest discover -s tests -v
 & 'E:\codes\env\STME-main\Scripts\python.exe' scripts\smoke_test.py
-& 'E:\codes\env\STME-main\Scripts\python.exe' scripts\train.py --dataset mnist --data-root data --phase-init zero --padded-size 4096 --limit 8 --max-batches 2 --micro-batch-size 2 --effective-batch-size 4 --epochs 1 --device cuda
+& 'E:\codes\env\STME-main\Scripts\python.exe' scripts\train.py --dataset mnist --data-root data --phase-init zero --padded-size 4096 --layer-spacing-mm 5 --detector-spacing-mm 10 --limit 8 --max-batches 2 --micro-batch-size 2 --effective-batch-size 4 --epochs 1 --device cuda
 ```
 
 ## 目录
@@ -47,11 +47,15 @@
 - `src/d2nn/`：物理核、探测器、NumPy 和 PyTorch 模型；
 - `tests/`：数值和梯度验证；
 - `scripts/`：端到端冒烟测试、显存基准和训练入口；
-- `docs/`：方案分析、理论修正、零填充收敛和 MNIST 首轮训练结论。
+- `docs/`：方案分析、理论修正、零填充收敛、MNIST 首轮训练和 5 mm/振幅优化变更。
 
 ## 填充策略
 
 - `Npad=2048`：速度优先的历史近似值，有限孔径多层级结果不可信；
-- `Npad=4096`：本地训练折中值，micro-batch=2；
-- `Npad=6144`：当前本机参考验证值，micro-batch=1；
+- `Npad=4096`：5 mm 层间距下的当前本地训练配置，micro-batch=2；
+- `Npad=6144`：可选高精度参考配置，micro-batch=1；
 - 完整推导和实测见 `docs/零填充收敛结论.md`。
+
+## 相位与振幅优化
+
+训练入口默认同时优化相位和振幅。振幅通过 sigmoid 约束在物理透过率范围 `(0, 1)`。增加 `--phase-only` 可恢复纯相位模式。

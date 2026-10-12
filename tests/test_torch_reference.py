@@ -127,6 +127,57 @@ class TorchReferenceTests(unittest.TestCase):
         self.assertTrue(torch.isfinite(gradient).all().item())
         self.assertGreater(float(gradient.abs().mean().item()), 0.0)
 
+    def test_torch_matches_numpy_with_amplitudes(self):
+        config, amplitude, phases = random_problem(seed=987)
+        rng = np.random.default_rng(988)
+        transmissions = rng.uniform(
+            0.1,
+            0.9,
+            size=(config.layer_count, config.field_size, config.field_size),
+        )
+        numpy_result = NumpyD2NN(
+            config,
+            phases=phases,
+            amplitudes=transmissions,
+        ).forward(amplitude)
+        torch_result = TorchD2NN(
+            config,
+            phases=torch.as_tensor(phases),
+            amplitudes=torch.as_tensor(transmissions),
+        )(torch.as_tensor(amplitude))
+        self.assertLess(
+            float(
+                np.max(
+                    np.abs(
+                        torch_result.detector_inner[0].detach().cpu().numpy()
+                        - numpy_result.detector_inner
+                    )
+                )
+            ),
+            1e-9,
+        )
+
+    def test_amplitude_and_phase_gradients_are_finite(self):
+        config, amplitude, phases = random_problem(seed=654)
+        model = TorchD2NN(
+            config,
+            phases=torch.as_tensor(phases),
+            train_amplitude=True,
+            amplitude_init=0.8,
+        )
+        result = model(torch.as_tensor(amplitude))
+        loss = model.loss(result.sk, torch.tensor([2], dtype=torch.long))
+        loss.backward()
+
+        self.assertIsNotNone(model.phases.grad)
+        self.assertIsNotNone(model.amplitude_logits.grad)
+        self.assertTrue(torch.isfinite(model.phases.grad).all().item())
+        self.assertTrue(torch.isfinite(model.amplitude_logits.grad).all().item())
+        self.assertGreater(float(model.phases.grad.abs().mean().item()), 0.0)
+        self.assertGreater(float(model.amplitude_logits.grad.abs().mean().item()), 0.0)
+        self.assertTrue(torch.all(model.amplitude_values() > 0.0).item())
+        self.assertTrue(torch.all(model.amplitude_values() < 1.0).item())
+
 
 if __name__ == "__main__":
     unittest.main()

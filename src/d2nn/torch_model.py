@@ -1,4 +1,4 @@
-﻿"""PyTorch differentiable implementation of the phase-only D2NN."""
+﻿"""PyTorch implementation for phase-only or phase-amplitude D2NN models."""
 
 from __future__ import annotations
 
@@ -27,16 +27,26 @@ class TorchForwardResult:
 
 
 class TorchD2NN(nn.Module):
-    """Phase-only free-space D2NN.
+    """Free-space D2NN with optional trainable amplitude transmission.
 
     The output detector signal is the pointwise intensity integral
 
         sk = sum_{p in Dk} |U_p|^2
 
-    not the squared coherent sum of the complex field.
+    not the squared coherent sum of the complex field. With the default
+    settings this class is phase-only and compatible with phase-only
+    checkpoints. Setting ``train_amplitude=True`` adds a per-layer amplitude
+    logit parameter and optimizes phase and amplitude simultaneously.
     """
 
-    def __init__(self, config, phases: Optional[torch.Tensor] = None):
+    def __init__(
+        self,
+        config,
+        phases: Optional[torch.Tensor] = None,
+        amplitudes: Optional[torch.Tensor] = None,
+        train_amplitude: bool = False,
+        amplitude_init: float = 1.0,
+    ):
         super().__init__()
         config.validate()
         self.config = config
@@ -63,6 +73,34 @@ class TorchD2NN(nn.Module):
             )
 
         self.phases = nn.Parameter(phase_values)
+        self.train_amplitude = bool(train_amplitude or amplitudes is not None)
+
+        if self.train_amplitude:
+            if amplitudes is None:
+                if not 0.0 < amplitude_init <= 1.0:
+                    raise ValueError("amplitude_init must be in (0, 1]")
+                amplitude_values = torch.full(
+                    expected_shape,
+                    float(amplitude_init),
+                    dtype=torch.float64,
+                )
+            else:
+                amplitude_values = torch.as_tensor(
+                    amplitudes, dtype=torch.float64
+                ).clone()
+                if tuple(amplitude_values.shape) != expected_shape:
+                    raise ValueError(
+                        "amplitudes must have shape "
+                        f"{expected_shape}, got {tuple(amplitude_values.shape)}"
+                    )
+
+            amplitude_values = amplitude_values.clamp(1.0e-6, 1.0 - 1.0e-6)
+            amplitude_logits = torch.log(
+                amplitude_values / (1.0 - amplitude_values)
+            )
+            self.amplitude_logits = nn.Parameter(amplitude_logits)
+        else:
+            self.amplitude_logits = None
 
         detector_masks = build_detector_masks(config)
         transfer = angular_spectrum_transfer_function(
@@ -94,25 +132,42 @@ class TorchD2NN(nn.Module):
         self._inner_start = (config.padded_size - config.field_size) // 2
         self._inner_stop = self._inner_start + config.field_size
 
-    def _apply_phase(self, field: torch.Tensor, phase: torch.Tensor) -> torch.Tensor:
-        """Apply phase inside the finite aperture without a full phase tensor.
+    def amplitude_values(self) -> Optional[torch.Tensor]:
+        """Return physical amplitude transmission, or None in phase-only mode."""
 
-        Building a full padded phase array creates an unnecessary complex128
-        tensor for every layer and dominates memory at 6144x6144. Concatenating
-        the unchanged vacuum regions with the modulated aperture keeps the same
-        physics and substantially reduces autograd memory.
+        if self.amplitude_logits is None:
+            return None
+        return torch.sigmoid(self.amplitude_logits)
+
+    def _apply_modulation(
+        self,
+        field: torch.Tensor,
+        phase: torch.Tensor,
+        amplitude: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Apply phase and optional amplitude inside the finite aperture.
+
+        Only the central aperture is modified. The vacuum area outside the
+        aperture is concatenated unchanged, avoiding a full padded complex
+        phase tensor for every layer.
         """
 
         start = self._inner_start
         stop = self._inner_stop
-        phase_factor = torch.exp(1j * phase.to(torch.complex128))
-        if self.config.amplitude_transmission != 1.0:
-            phase_factor = self.config.amplitude_transmission * phase_factor
+        modulation = torch.exp(1j * phase.to(torch.complex128))
+
+        if amplitude is None:
+            if self.config.amplitude_transmission != 1.0:
+                modulation = (
+                    self.config.amplitude_transmission * modulation
+                )
+        else:
+            modulation = amplitude.to(torch.complex128) * modulation
 
         top = field[..., :start, :]
         middle = field[..., start:stop, :]
         middle_left = middle[..., :start]
-        middle_center = middle[..., start:stop] * phase_factor.unsqueeze(0)
+        middle_center = middle[..., start:stop] * modulation.unsqueeze(0)
         middle_right = middle[..., stop:]
         middle = torch.cat(
             (middle_left, middle_center, middle_right),
@@ -120,6 +175,11 @@ class TorchD2NN(nn.Module):
         )
         bottom = field[..., stop:, :]
         return torch.cat((top, middle, bottom), dim=-2)
+
+    def _apply_phase(self, field: torch.Tensor, phase: torch.Tensor) -> torch.Tensor:
+        """Backward-compatible phase-only helper."""
+
+        return self._apply_modulation(field, phase, amplitude=None)
 
     def _propagate(self, field: torch.Tensor, transfer: torch.Tensor) -> torch.Tensor:
         return torch.fft.ifft2(torch.fft.fft2(field) * transfer)
@@ -154,14 +214,28 @@ class TorchD2NN(nn.Module):
 
         field = amplitude.to(torch.complex128)
         padding_left = self._inner_start
-        padding_right = self.config.padded_size - self.config.field_size - padding_left
+        padding_right = (
+            self.config.padded_size
+            - self.config.field_size
+            - padding_left
+        )
         field = F.pad(
             field,
             (padding_left, padding_right, padding_left, padding_right),
         )
 
+        amplitude_values = self.amplitude_values()
         for layer_index in range(self.config.layer_count):
-            field = self._apply_phase(field, self.phases[layer_index])
+            layer_amplitude = (
+                None
+                if amplitude_values is None
+                else amplitude_values[layer_index]
+            )
+            field = self._apply_modulation(
+                field,
+                self.phases[layer_index],
+                layer_amplitude,
+            )
             if layer_index < self.config.layer_count - 1:
                 field = self._propagate(field, self.layer_transfer)
 
@@ -184,7 +258,11 @@ class TorchD2NN(nn.Module):
 
         sorted_sk = torch.sort(sk, dim=1).values
         largest = sorted_sk[:, -1]
-        second_largest = sorted_sk[:, -2] if sk.shape[1] > 1 else torch.zeros_like(largest)
+        second_largest = (
+            sorted_sk[:, -2]
+            if sk.shape[1] > 1
+            else torch.zeros_like(largest)
+        )
         eps = torch.finfo(sk.dtype).eps
         contrast = torch.where(
             largest <= 0.0,
@@ -219,5 +297,3 @@ class TorchD2NN(nn.Module):
 
         with torch.no_grad():
             self.phases.remainder_(self.config.phase_span_rad())
-
-

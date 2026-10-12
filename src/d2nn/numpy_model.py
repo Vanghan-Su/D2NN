@@ -30,7 +30,13 @@ class NumpyD2NN:
     verify the PyTorch implementation and the physics conventions.
     """
 
-    def __init__(self, config, phases: np.ndarray, normalize_input: bool = True):
+    def __init__(
+        self,
+        config,
+        phases: np.ndarray,
+        amplitudes: np.ndarray = None,
+        normalize_input: bool = True,
+    ):
         config.validate()
         self.config = config
         self.normalize_input = bool(normalize_input)
@@ -44,6 +50,18 @@ class NumpyD2NN:
             raise ValueError(
                 f"phases must have shape {expected_shape}, got {self.phases.shape}"
             )
+
+        if amplitudes is None:
+            self.amplitudes = None
+        else:
+            self.amplitudes = np.asarray(amplitudes, dtype=np.float64)
+            if self.amplitudes.shape != expected_shape:
+                raise ValueError(
+                    "amplitudes must have shape "
+                    f"{expected_shape}, got {self.amplitudes.shape}"
+                )
+            if np.any(self.amplitudes < 0.0) or np.any(self.amplitudes > 1.0):
+                raise ValueError("amplitudes must lie in [0, 1]")
         self.detector_masks = build_detector_masks(config)
         self.layer_transfer = angular_spectrum_transfer_function(
             config, config.layer_spacing_m
@@ -52,17 +70,28 @@ class NumpyD2NN:
             config, config.detector_spacing_m
         )
 
-    def _apply_phase(self, field: np.ndarray, phase: np.ndarray) -> np.ndarray:
+    def _apply_modulation(
+        self,
+        field: np.ndarray,
+        phase: np.ndarray,
+        amplitude: np.ndarray = None,
+    ) -> np.ndarray:
         output = np.array(field, dtype=np.complex128, copy=True)
         start = (self.config.padded_size - self.config.field_size) // 2
         stop = start + self.config.field_size
-        phase_factor = np.exp(1j * phase)
-        if self.config.amplitude_transmission != 1.0:
-            phase_factor = (
-                self.config.amplitude_transmission * phase_factor
-            )
-        output[start:stop, start:stop] *= phase_factor
+        modulation = np.exp(1j * phase)
+        if amplitude is None:
+            if self.config.amplitude_transmission != 1.0:
+                modulation = self.config.amplitude_transmission * modulation
+        else:
+            modulation = np.asarray(amplitude, dtype=np.float64) * modulation
+        output[start:stop, start:stop] *= modulation
         return output
+
+    def _apply_phase(self, field: np.ndarray, phase: np.ndarray) -> np.ndarray:
+        """Backward-compatible phase-only helper."""
+
+        return self._apply_modulation(field, phase, amplitude=None)
 
     def forward(
         self,
@@ -91,7 +120,16 @@ class NumpyD2NN:
 
         layer_fields = [] if return_fields else None
         for layer_index in range(self.config.layer_count):
-            field = self._apply_phase(field, self.phases[layer_index])
+            layer_amplitude = (
+                None
+                if self.amplitudes is None
+                else self.amplitudes[layer_index]
+            )
+            field = self._apply_modulation(
+                field,
+                self.phases[layer_index],
+                layer_amplitude,
+            )
             if layer_fields is not None:
                 layer_fields.append(field.copy())
             if layer_index < self.config.layer_count - 1:

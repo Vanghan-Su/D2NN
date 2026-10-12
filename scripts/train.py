@@ -25,8 +25,22 @@ def parse_args():
     parser.add_argument("--effective-batch-size", type=int, default=64)
     parser.add_argument("--micro-batch-size", type=int, default=2)
     parser.add_argument("--padded-size", type=int, default=4096)
+    parser.add_argument("--layer-spacing-mm", type=float, default=5.0)
+    parser.add_argument("--detector-spacing-mm", type=float, default=10.0)
     parser.add_argument("--learning-rate", type=float, default=1.0e-2)
     parser.add_argument("--phase-init", choices=("random", "zero"), default="random")
+    parser.add_argument(
+        "--optimize-amplitude",
+        dest="optimize_amplitude",
+        action="store_true",
+        default=True,
+    )
+    parser.add_argument(
+        "--phase-only",
+        dest="optimize_amplitude",
+        action="store_false",
+    )
+    parser.add_argument("--amplitude-init", type=float, default=1.0)
     parser.add_argument("--limit", type=int, default=128)
     parser.add_argument("--max-batches", type=int, default=None)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
@@ -46,7 +60,12 @@ def choose_device(name):
 def main() -> None:
     args = parse_args()
     device = choose_device(args.device)
-    config = SimulationConfig(padded_size=args.padded_size, seed=args.seed)
+    config = SimulationConfig(
+        padded_size=args.padded_size,
+        layer_spacing_m=args.layer_spacing_mm * 1.0e-3,
+        detector_spacing_m=args.detector_spacing_mm * 1.0e-3,
+        seed=args.seed,
+    )
     config.validate()
 
     if args.dataset == "synthetic":
@@ -108,6 +127,9 @@ def main() -> None:
     print(f"validation_examples={len(validation_dataset)}")
     print(f"accumulation_steps={train_config.accumulation_steps}")
     print(f"phase_init={args.phase_init}")
+    print(f"layer_spacing_mm={args.layer_spacing_mm}")
+    print(f"detector_spacing_mm={args.detector_spacing_mm}")
+    print(f"optimize_amplitude={args.optimize_amplitude}")
 
     initial_phases = None
     if args.phase_init == "zero":
@@ -119,7 +141,12 @@ def main() -> None:
             ),
             dtype=torch.float64,
         )
-    model = TorchD2NN(config, phases=initial_phases).to(device)
+    model = TorchD2NN(
+        config,
+        phases=initial_phases,
+        train_amplitude=args.optimize_amplitude,
+        amplitude_init=args.amplitude_init,
+    ).to(device)
     fit(
         model=model,
         train_loader=train_loader,

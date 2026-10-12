@@ -43,7 +43,7 @@ DEFAULT_DETECTOR_REGIONS = (
 
 @dataclass(frozen=True)
 class SimulationConfig:
-    """Configuration for the phase-only free-space D2NN.
+    """Configuration for the free-space D2NN.
 
     All physical lengths are stored in metres. The detector coordinate system
     uses its upper-left corner as the origin, with x increasing to the right
@@ -54,7 +54,7 @@ class SimulationConfig:
     pixel_size_m: float = 2.5e-6
     field_size: int = 400
     layer_count: int = 5
-    layer_spacing_m: float = 10.0e-3
+    layer_spacing_m: float = 5.0e-3
     detector_spacing_m: float = 10.0e-3
     padded_size: int = 4096
     amplitude_transmission: float = 1.0
