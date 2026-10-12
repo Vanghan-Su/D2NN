@@ -35,24 +35,19 @@
 
 训练 loss 从 0.096792 降到 0.081841，eta 从 0.429748 升到 0.534976。验证集只有 6 个样本，当前验证准确率不具备统计意义。
 
-## 3. 相位与振幅分布
+## 3. 输出面光强分布
 
-![5 mm、32 样本、10 epoch 的相位和振幅分布](assets/phase_amplitude_distribution_5mm_32samples_10epochs.png)
+![5 mm、32 样本、10 epoch 的探测面光强分布](assets/output_intensity_5mm_phase_amplitude_32samples_10epochs.png)
 
-*图 1：上排为 5 个衍射层的相位分布，单位为 rad，使用周期色标；下排为对应的振幅透过率分布，范围为 [0, 1]。*
+*图 1：训练后模型在探测面的输出光强分布，使用对数强度标度。红色方框标出数字 0–9 对应的矩形探测区域，框内数字为对应类别。*
 
-最终 checkpoint 的统计量：
-
-- 相位范围：0.000000–6.283185 rad；
-- 相位均值：2.906497 rad；
-- 振幅范围：0.984950–0.993147；
-- 振幅均值：0.990224。
+本图使用 MNIST 样本索引 11，真实类别为 5，模型预测类别为 5，eta=0.513052。
 
 ## 4. 产物位置
 
 - checkpoint：`outputs/train_5mm_phase_amplitude_32/last_checkpoint.pt`
-- 相位/振幅分布 PNG：`docs/assets/phase_amplitude_distribution_5mm_32samples_10epochs.png`
-- 相位/振幅分布 PDF：`docs/assets/phase_amplitude_distribution_5mm_32samples_10epochs.pdf`
+- 输出面光强 PNG：`docs/assets/output_intensity_5mm_phase_amplitude_32samples_10epochs.png`
+- 输出面光强 PDF：`docs/assets/output_intensity_5mm_phase_amplitude_32samples_10epochs.pdf`
 
 ## 5. 结论与限制
 
