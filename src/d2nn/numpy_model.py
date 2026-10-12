@@ -1,4 +1,4 @@
-﻿"""NumPy reference implementation of the phase-only D2NN."""
+﻿"""NumPy reference implementation of the phase/amplitude D2NN."""
 
 from __future__ import annotations
 

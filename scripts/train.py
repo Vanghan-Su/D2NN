@@ -1,4 +1,4 @@
-"""Training entry point for the phase-only D2NN."""
+"""Training entry point for phase/amplitude D2NN optimization."""
 
 from pathlib import Path
 import argparse

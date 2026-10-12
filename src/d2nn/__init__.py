@@ -1,4 +1,4 @@
-﻿"""Phase-only diffractive optical neural network simulation."""
+﻿"""Diffractive optical neural network simulation."""
 
 from .config import DetectorRegion, SimulationConfig
 from .detector import DetectorResult, build_detector_masks, integrate_detector_regions
