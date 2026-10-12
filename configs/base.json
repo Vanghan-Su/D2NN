@@ -1,0 +1,13 @@
+{
+  "wavelength_m": 6.328e-7,
+  "pixel_size_m": 2.5e-6,
+  "field_size": 400,
+  "layer_count": 5,
+  "layer_spacing_m": 0.01,
+  "detector_spacing_m": 0.01,
+  "padded_size": 4096,
+  "amplitude_transmission": 1.0,
+  "phase_min_rad": 0.0,
+  "phase_max_rad": 6.283185307179586,
+  "seed": 20261012
+}
