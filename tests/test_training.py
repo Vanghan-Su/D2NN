@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from d2nn.config import SimulationConfig
+from d2nn.config import PURE_PHASE_METHOD, SimulationConfig
 from d2nn.data import SyntheticAmplitudeDataset
 from d2nn.torch_model import TorchD2NN
 from d2nn.training import TrainConfig, evaluate, train_one_epoch
@@ -29,6 +29,8 @@ class TrainingSmokeTests(unittest.TestCase):
         dataset = SyntheticAmplitudeDataset(size=8, field_size=config.field_size)
         loader = DataLoader(dataset, batch_size=2, shuffle=False)
         model = TorchD2NN(config)
+        self.assertIsNone(model.amplitude_logits)
+        self.assertEqual(model.optimization_branch, PURE_PHASE_METHOD)
         optimizer = torch.optim.Adam(model.parameters(), lr=1.0e-2)
         before = model.phases.detach().clone()
         loss = train_one_epoch(

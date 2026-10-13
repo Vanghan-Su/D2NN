@@ -28,6 +28,12 @@ def parse_args():
         default="outputs/20261012-171952_mnist_5mm_4096pad_phase-amplitude_zero-init_32samples_10epochs/20261012-171952_mnist_5mm_4096pad_phase-amplitude_zero-init_32samples_10epochs_last.pt",
     )
     parser.add_argument("--sample-index", type=int, default=11)
+    parser.add_argument(
+        "--split",
+        choices=("train", "test"),
+        default="train",
+        help="MNIST split used to select the sample.",
+    )
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--padded-size", type=int, default=4096)
     parser.add_argument("--layer-spacing-mm", type=float, default=5.0)
@@ -47,8 +53,21 @@ def detector_intensity_image(model, amplitude, device):
     return intensity, output
 
 
-def add_region_boxes(ax, config):
+DETECTOR_BOX_COLOR = "#00E5FF"
+SUCCESS_BOX_COLOR = "#39FF14"
+
+
+def add_region_boxes(
+    ax,
+    config,
+    highlight_label=None,
+    font_size=9.0,
+    line_width=1.25,
+    highlight_line_width=2.0,
+):
     for region in config.detector_regions:
+        is_highlight = highlight_label is not None and region.label == highlight_label
+        color = SUCCESS_BOX_COLOR if is_highlight else DETECTOR_BOX_COLOR
         x0 = (region.center_x_m - region.width_m / 2.0) * 1.0e3
         y0 = (region.center_y_m - region.height_m / 2.0) * 1.0e3
         width = region.width_m * 1.0e3
@@ -58,8 +77,8 @@ def add_region_boxes(ax, config):
             width,
             height,
             fill=False,
-            edgecolor="red",
-            linewidth=1.25,
+            edgecolor=color,
+            linewidth=highlight_line_width if is_highlight else line_width,
             zorder=5,
         )
         ax.add_patch(box)
@@ -67,15 +86,15 @@ def add_region_boxes(ax, config):
             region.center_x_m * 1.0e3,
             region.center_y_m * 1.0e3,
             str(region.label),
-            color="red",
-            fontsize=9,
+            color=color,
+            fontsize=font_size,
             fontweight="bold",
             ha="center",
             va="center",
             zorder=6,
         )
         label.set_path_effects(
-            [path_effects.withStroke(linewidth=2.0, foreground="white")]
+            [path_effects.withStroke(linewidth=1.4, foreground="black")]
         )
 
 
@@ -106,7 +125,7 @@ def main() -> None:
 
     dataset = build_mnist_dataset(
         root=args.data_root,
-        train=True,
+        train=args.split == "train",
         field_size=config.field_size,
         download=False,
     )
@@ -139,7 +158,11 @@ def main() -> None:
         norm=LogNorm(vmin=vmin, vmax=vmax),
         interpolation="nearest",
     )
-    add_region_boxes(axes[1], config)
+    add_region_boxes(
+        axes[1],
+        config,
+        highlight_label=prediction if prediction == int(label) else None,
+    )
     axes[1].set_xlim(0.0, 1.0)
     axes[1].set_ylim(1.0, 0.0)
     axes[1].set_xlabel("Detector x (mm)")
@@ -151,7 +174,7 @@ def main() -> None:
     colorbar.set_label(r"Intensity $|U|^2$ (a.u.)")
 
     fig.suptitle(
-        f"MNIST sample {args.sample_index}: true {int(label)}, predicted {prediction}",
+        f"MNIST {args.split} sample {args.sample_index}: true {int(label)}, predicted {prediction}",
         fontsize=11,
     )
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))

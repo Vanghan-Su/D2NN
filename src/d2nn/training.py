@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import math
 from pathlib import Path
 from typing import Optional
@@ -15,13 +16,13 @@ from .torch_model import TorchD2NN
 
 @dataclass(frozen=True)
 class TrainConfig:
-    epochs: int = 1
-    effective_batch_size: int = 64
-    micro_batch_size: int = 4
+    epochs: int = 20
+    effective_batch_size: int = 32
+    micro_batch_size: int = 8
     learning_rate: float = 1.0e-2
     max_batches_per_epoch: Optional[int] = None
     num_workers: int = 0
-    log_every: int = 50
+    log_every: int = 10
     seed: int = 20261012
 
     @property
@@ -48,6 +49,7 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     train_config: TrainConfig,
     device: torch.device,
+    epoch: Optional[int] = None,
 ) -> float:
     model.train()
     optimizer.zero_grad(set_to_none=True)
@@ -74,6 +76,17 @@ def train_one_epoch(
             model.wrap_phases_()
             optimizer.zero_grad(set_to_none=True)
             accumulation_counter = 0
+
+        if (
+            train_config.log_every > 0
+            and processed_micro_batches % train_config.log_every == 0
+        ):
+            epoch_text = f"epoch={epoch} " if epoch is not None else ""
+            print(
+                f"{epoch_text}micro_batch={processed_micro_batches} "
+                f"running_loss={running_loss / processed_micro_batches:.6f}",
+                flush=True,
+            )
 
     if accumulation_counter != 0:
         optimizer.step()
@@ -128,6 +141,10 @@ def fit(
 
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.learning_rate)
     history = []
+    best_validation_loss = float("inf")
+    best_checkpoint_name = checkpoint_name.replace("_last.pt", "_best.pt")
+    if best_checkpoint_name == checkpoint_name:
+        best_checkpoint_name = "best_checkpoint.pt"
     output_path = Path(output_dir) if output_dir else None
     if output_path is not None:
         output_path.mkdir(parents=True, exist_ok=True)
@@ -140,6 +157,7 @@ def fit(
             optimizer,
             train_config,
             device,
+            epoch=epoch_index + 1,
         )
         validation = evaluate(model, validation_loader, device)
         elapsed = time.perf_counter() - start
@@ -167,9 +185,17 @@ def fit(
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "simulation_config": model.config,
+                "optimization_branch": model.optimization_branch,
                 "train_config": train_config.__dict__,
                 "history": history,
             }
             torch.save(checkpoint, output_path / checkpoint_name)
+            if validation["loss"] < best_validation_loss:
+                best_validation_loss = validation["loss"]
+                torch.save(checkpoint, output_path / best_checkpoint_name)
+            with (output_path / "history.json").open(
+                "w", encoding="utf-8"
+            ) as handle:
+                json.dump(history, handle, ensure_ascii=False, indent=2)
 
     return history

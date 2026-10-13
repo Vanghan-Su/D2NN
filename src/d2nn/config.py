@@ -8,6 +8,10 @@ import math
 from typing import Tuple
 
 
+PURE_PHASE_METHOD = "纯相位法"
+COMPLEX_AMPLITUDE_PRETRAIN_METHOD = "复振幅预训练"
+
+
 @dataclass(frozen=True)
 class DetectorRegion:
     """One rectangular detector region in top-left detector coordinates."""
@@ -56,7 +60,7 @@ class SimulationConfig:
     layer_count: int = 5
     layer_spacing_m: float = 5.0e-3
     detector_spacing_m: float = 10.0e-3
-    padded_size: int = 4096
+    padded_size: int = 2048
     amplitude_transmission: float = 1.0
     phase_min_rad: float = 0.0
     phase_max_rad: float = 2.0 * math.pi

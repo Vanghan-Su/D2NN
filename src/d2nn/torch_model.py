@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .config import COMPLEX_AMPLITUDE_PRETRAIN_METHOD, PURE_PHASE_METHOD
 from .detector import build_detector_masks
 from .grid import angular_spectrum_transfer_function
 
@@ -131,6 +132,14 @@ class TorchD2NN(nn.Module):
 
         self._inner_start = (config.padded_size - config.field_size) // 2
         self._inner_stop = self._inner_start + config.field_size
+
+    @property
+    def optimization_branch(self) -> str:
+        """Name the active optimization branch for metadata and outputs."""
+
+        if self.train_amplitude:
+            return COMPLEX_AMPLITUDE_PRETRAIN_METHOD
+        return PURE_PHASE_METHOD
 
     def amplitude_values(self) -> Optional[torch.Tensor]:
         """Return physical amplitude transmission, or None in phase-only mode."""

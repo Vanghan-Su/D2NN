@@ -117,17 +117,25 @@ def main() -> None:
         amplitude_colorbar = fig.colorbar(amplitude_image, cax=cbar_amp_ax)
         amplitude_colorbar.set_label("Amplitude transmission")
 
-    fig.suptitle(
-        "5 mm layer spacing, 32 MNIST samples, 10 epochs\n"
-        "Top: phase distributions | Bottom: amplitude distributions",
-        fontsize=12,
-    )
+    if amplitudes is None:
+        fig.suptitle(
+            "Pure-phase method: 5 mm layer spacing\n"
+            "Trainable phase distributions",
+            fontsize=12,
+        )
+    else:
+        fig.suptitle(
+            "Complex-amplitude pretraining: 5 mm layer spacing\n"
+            "Top: phase distributions | Bottom: amplitude distributions",
+            fontsize=12,
+        )
 
     if args.output is None:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         checkpoint_stem = Path(args.checkpoint).stem
+        optimization_slug = "纯相位法" if amplitudes is None else "复振幅预训练"
         output_path = Path(
-            f"docs/assets/{timestamp}_figure_{checkpoint_stem}_phase-amplitude.png"
+            f"docs/assets/{timestamp}_figure_{checkpoint_stem}_{optimization_slug}.png"
         )
     else:
         output_path = Path(args.output)

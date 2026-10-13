@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 import numpy as np
 
+from .config import COMPLEX_AMPLITUDE_PRETRAIN_METHOD, PURE_PHASE_METHOD
 from .detector import DetectorResult, build_detector_masks, integrate_detector_regions
 from .grid import (
     angular_spectrum_transfer_function,
@@ -69,6 +70,14 @@ class NumpyD2NN:
         self.detector_transfer = angular_spectrum_transfer_function(
             config, config.detector_spacing_m
         )
+
+    @property
+    def optimization_branch(self) -> str:
+        """Name the active optimization branch for consistency with PyTorch."""
+
+        if self.amplitudes is None:
+            return PURE_PHASE_METHOD
+        return COMPLEX_AMPLITUDE_PRETRAIN_METHOD
 
     def _apply_modulation(
         self,

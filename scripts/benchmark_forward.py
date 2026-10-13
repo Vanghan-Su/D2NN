@@ -16,7 +16,7 @@ from d2nn.torch_model import TorchD2NN
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--padded-size", type=int, default=4096)
+    parser.add_argument("--padded-size", type=int, default=2048)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cuda")
     parser.add_argument("--no-backward", action="store_true")
     return parser.parse_args()
