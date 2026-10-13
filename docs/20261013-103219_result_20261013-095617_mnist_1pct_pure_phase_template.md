@@ -118,6 +118,12 @@ python scripts/train.py --dataset mnist --data-root data --phase-only --phase-in
 - Validation eta：0.29435949
 - 训练总耗时：1599.04 秒
 
+### 6.1 Loss 曲线
+
+![训练与验证 Loss 曲线](assets/20261013-095617_mnist_1pct_pure_phase_training_loss_curve.png)
+
+该图给出纯相位法训练过程中训练集和验证集的逐 epoch loss 变化。
+
 ## 7. 独立测试结果
 
 测试集：从未参与训练和验证的 MNIST 测试集索引中随机抽取 50 张，随机种子 `20261013`。
@@ -213,6 +219,7 @@ python scripts/train.py --dataset mnist --data-root data --phase-only --phase-in
 | 训练历史 | `outputs/20261013-095617_mnist_5mm_2048pad_纯相位法_random-init_600samples_20epochs/history.json` |
 | 训练日志 | `outputs/20261013-095617_mnist_5mm_2048pad_纯相位法_random-init_600samples_20epochs/training.log` |
 | 相位分布图 | `outputs/20261013-095617_mnist_5mm_2048pad_纯相位法_random-init_600samples_20epochs/phase_distribution.png` |
+| Loss 曲线 | `docs/assets/20261013-095617_mnist_1pct_pure_phase_training_loss_curve.png` |
 | 50 张测试样本探测面光强网格 | `outputs/20261013-095617_mnist_5mm_2048pad_纯相位法_random-init_600samples_20epochs/detector_intensity_test50_grid.png` |
 | 测试样本 612 探测面光强及区域图 | `outputs/20261013-095617_mnist_5mm_2048pad_纯相位法_random-init_600samples_20epochs/detector_output_test612.png` |
 | 测试样本 862 分类成功高亮图 | `outputs/20261013-095617_mnist_5mm_2048pad_纯相位法_random-init_600samples_20epochs/detector_output_test862.png` |

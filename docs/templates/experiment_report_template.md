@@ -48,6 +48,12 @@
 
 {{BEST_TRAINING_SUMMARY}}
 
+### 6.1 Loss 曲线
+
+![训练与验证 Loss 曲线]({{LOSS_CURVE_IMAGE}})
+
+{{LOSS_CURVE_DESCRIPTION}}
+
 ## 7. 独立测试结果
 
 测试集必须从未参与训练和验证的样本中按固定种子随机抽取，并记录索引。
@@ -79,6 +85,8 @@
 ## 8. 产物清单
 
 {{ARTIFACT_TABLE}}
+
+产物清单必须包含 loss 曲线图片及其路径。
 
 ## 9. 复现步骤
 
