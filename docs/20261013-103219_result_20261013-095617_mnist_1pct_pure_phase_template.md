@@ -23,16 +23,16 @@
 | 项目 | 值 |
 |---|---|
 | Git 分支 | `纯相位法` |
-| Git commit | `fc97305697693830bc232f153ea805b16db08da6` |
-| 工作区状态 | `dirty`（存在未提交改动；完整状态见生成时仓库） |
+| Git commit | `7a05e3e`（v0.4.0 基准提交） |
+| 工作区状态 | `v0.4.0` 实验基准；详见 Git 标签和提交记录 |
 
 关键代码文件 SHA256：
 
 | 文件 | SHA256 |
 |---|---|
-| `scripts\train.py` | `dfc1cc8e857262d7ea5c02dac50c473a29d02d29163996d0779ff8ac5d90d5ee` |
+| `scripts\train.py` | `a88de4bfacb373c6cf4f2a275aaeb979c9e3a109502f0e90e7d4b0926cf09fd1` |
 | `src\d2nn\torch_model.py` | `72b77481acb2edced980650972906f1a4e3aef0eeac81c4ea8c7a17bbd52b320` |
-| `src\d2nn\training.py` | `54018ec9066b5da119bf0f27e8a505ecaa5633a8010d2d12998fb61f32f08402` |
+| `src\d2nn\training.py` | `52351df050a1d06f93058d158a06d985999930a3c922ea05f7b7b65d8c86b14e` |
 | `src\d2nn\config.py` | `a464a18f7eab59c9d044e89ef07495e6592f8a63039a72ac6265bed02f272dab` |
 
 ### 2.2 环境
