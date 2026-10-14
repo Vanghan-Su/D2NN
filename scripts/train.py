@@ -59,6 +59,7 @@ def parse_args():
     )
     parser.add_argument("--max-batches", type=int, default=None)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    parser.add_argument("--resume-from", default=None)
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--seed", type=int, default=20261012)
     args = parser.parse_args()
@@ -78,12 +79,21 @@ def choose_device(name):
 def main() -> None:
     args = parse_args()
     device = choose_device(args.device)
-    config = SimulationConfig(
-        padded_size=args.padded_size,
-        layer_spacing_m=args.layer_spacing_mm * 1.0e-3,
-        detector_spacing_m=args.detector_spacing_mm * 1.0e-3,
-        seed=args.seed,
-    )
+    resume_checkpoint = None
+    if args.resume_from is not None:
+        resume_checkpoint = torch.load(args.resume_from, map_location="cpu")
+        config = resume_checkpoint["simulation_config"]
+        args.optimize_amplitude = any(
+            key.startswith("amplitude_logits")
+            for key in resume_checkpoint["model_state_dict"]
+        )
+    else:
+        config = SimulationConfig(
+            padded_size=args.padded_size,
+            layer_spacing_m=args.layer_spacing_mm * 1.0e-3,
+            detector_spacing_m=args.detector_spacing_mm * 1.0e-3,
+            seed=args.seed,
+        )
     config.validate()
     optimization_slug = (
         COMPLEX_AMPLITUDE_PRETRAIN_METHOD
@@ -174,10 +184,11 @@ def main() -> None:
     print(f"optimize_amplitude={args.optimize_amplitude}")
 
     run_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_mode = "resume" if resume_checkpoint is not None else "fresh"
     run_slug = (
         f"{args.dataset}_{args.layer_spacing_mm:g}mm_"
         f"{args.padded_size}pad_{optimization_slug}_"
-        f"{args.phase_init}-init_{len(train_dataset)}samples_"
+        f"{run_mode}_{args.phase_init}-init_{len(train_dataset)}samples_"
         f"{args.epochs}epochs"
     )
     output_dir = args.output_dir or f"outputs/{run_timestamp}_{run_slug}"
@@ -195,12 +206,20 @@ def main() -> None:
             ),
             dtype=torch.float64,
         )
-    model = TorchD2NN(
-        config,
-        phases=initial_phases,
-        train_amplitude=args.optimize_amplitude,
-        amplitude_init=args.amplitude_init,
-    ).to(device)
+    if resume_checkpoint is None:
+        model = TorchD2NN(
+            config,
+            phases=initial_phases,
+            train_amplitude=args.optimize_amplitude,
+            amplitude_init=args.amplitude_init,
+        ).to(device)
+    else:
+        model = TorchD2NN(
+            config,
+            train_amplitude=args.optimize_amplitude,
+        )
+        model.load_state_dict(resume_checkpoint["model_state_dict"], strict=True)
+        model = model.to(device)
     fit(
         model=model,
         train_loader=train_loader,
@@ -209,6 +228,7 @@ def main() -> None:
         device=device,
         output_dir=output_dir,
         checkpoint_name=checkpoint_name,
+        resume_checkpoint=resume_checkpoint,
     )
 
 

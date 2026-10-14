@@ -134,6 +134,7 @@ def fit(
     device: torch.device,
     output_dir: Optional[str] = None,
     checkpoint_name: str = "last_checkpoint.pt",
+    resume_checkpoint: Optional[dict] = None,
 ) -> list:
     torch.manual_seed(train_config.seed)
     if device.type == "cuda":
@@ -141,7 +142,15 @@ def fit(
 
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.learning_rate)
     history = []
-    best_validation_loss = float("inf")
+    if resume_checkpoint is not None:
+        if "optimizer_state_dict" in resume_checkpoint:
+            optimizer.load_state_dict(resume_checkpoint["optimizer_state_dict"])
+        history = list(resume_checkpoint.get("history", []))
+    start_epoch = len(history)
+    best_validation_loss = min(
+        (item["validation_loss"] for item in history),
+        default=float("inf"),
+    )
     best_checkpoint_name = checkpoint_name.replace("_last.pt", "_best.pt")
     if best_checkpoint_name == checkpoint_name:
         best_checkpoint_name = "best_checkpoint.pt"
@@ -151,18 +160,19 @@ def fit(
 
     for epoch_index in range(train_config.epochs):
         start = time.perf_counter()
+        epoch_number = start_epoch + epoch_index + 1
         train_loss = train_one_epoch(
             model,
             train_loader,
             optimizer,
             train_config,
             device,
-            epoch=epoch_index + 1,
+            epoch=epoch_number,
         )
         validation = evaluate(model, validation_loader, device)
         elapsed = time.perf_counter() - start
         record = {
-            "epoch": epoch_index + 1,
+            "epoch": epoch_number,
             "train_loss": train_loss,
             "validation_loss": validation["loss"],
             "validation_accuracy": validation["accuracy"],
