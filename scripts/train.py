@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--dataset", choices=("synthetic", "mnist"), default="mnist")
     parser.add_argument("--data-root", default=str(Path("data")))
     parser.add_argument("--download", action="store_true")
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--effective-batch-size", type=int, default=32)
     parser.add_argument("--micro-batch-size", type=int, default=8)
     parser.add_argument("--padded-size", type=int, default=2048)
@@ -49,7 +49,21 @@ def parse_args():
         action="store_true",
         help="Optional complex-amplitude pretraining only; final training is pure phase.",
     )
-    parser.add_argument("--amplitude-init", type=float, default=1.0)
+    parser.add_argument("--amplitude-init", type=float, default=0.8)
+    parser.add_argument(
+        "--normalize-input-amplitude",
+        dest="normalize_input_amplitude",
+        action="store_true",
+        default=True,
+        help="Normalize each input grayscale amplitude image to unit power.",
+    )
+    parser.add_argument(
+        "--no-normalize-input-amplitude",
+        dest="normalize_input_amplitude",
+        action="store_false",
+        help="Use raw grayscale values directly without input-power normalization.",
+    )
+    parser.set_defaults(optimize_amplitude=True)
     parser.add_argument("--limit", type=int, default=128)
     parser.add_argument(
         "--dataset-fraction",
@@ -182,6 +196,7 @@ def main() -> None:
     print(f"detector_spacing_mm={args.detector_spacing_mm}")
     print(f"optimization_branch={optimization_slug}")
     print(f"optimize_amplitude={args.optimize_amplitude}")
+    print(f"normalize_input_amplitude={args.normalize_input_amplitude}")
 
     run_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_mode = "resume" if resume_checkpoint is not None else "fresh"
@@ -212,11 +227,13 @@ def main() -> None:
             phases=initial_phases,
             train_amplitude=args.optimize_amplitude,
             amplitude_init=args.amplitude_init,
+            normalize_input=args.normalize_input_amplitude,
         ).to(device)
     else:
         model = TorchD2NN(
             config,
             train_amplitude=args.optimize_amplitude,
+            normalize_input=args.normalize_input_amplitude,
         )
         model.load_state_dict(resume_checkpoint["model_state_dict"], strict=True)
         model = model.to(device)

@@ -65,7 +65,7 @@ def train_one_epoch(
             break
         amplitude, labels = _move_batch(amplitude, labels, device)
         output = model(amplitude)
-        loss = model.loss(output.sk, labels)
+        loss = model.loss(output.sk, labels, output.input_power)
         (loss / train_config.accumulation_steps).backward()
         running_loss += float(loss.detach().cpu())
         processed_micro_batches += 1
@@ -105,16 +105,18 @@ def evaluate(model: TorchD2NN, data_loader, device: torch.device) -> dict:
     total_loss = 0.0
     correct = 0
     eta_sum = 0.0
+    input_power_sum = 0.0
 
     for amplitude, labels in data_loader:
         amplitude, labels = _move_batch(amplitude, labels, device)
         output = model(amplitude)
-        loss = model.loss(output.sk, labels)
+        loss = model.loss(output.sk, labels, output.input_power)
         batch_size = int(labels.shape[0])
         total_examples += batch_size
         total_loss += float(loss.detach().cpu()) * batch_size
         correct += int((output.prediction == labels).sum().detach().cpu())
         eta_sum += float(output.eta.sum().detach().cpu())
+        input_power_sum += float(output.input_power.sum().detach().cpu())
 
     if total_examples == 0:
         raise RuntimeError("data_loader produced no examples")
@@ -122,6 +124,7 @@ def evaluate(model: TorchD2NN, data_loader, device: torch.device) -> dict:
         "loss": total_loss / total_examples,
         "accuracy": correct / total_examples,
         "eta": eta_sum / total_examples,
+        "mean_input_power": input_power_sum / total_examples,
         "examples": total_examples,
     }
 
@@ -177,6 +180,7 @@ def fit(
             "validation_loss": validation["loss"],
             "validation_accuracy": validation["accuracy"],
             "validation_eta": validation["eta"],
+            "validation_mean_input_power": validation["mean_input_power"],
             "seconds": elapsed,
         }
         history.append(record)
@@ -186,6 +190,7 @@ def fit(
             f"val_loss={record['validation_loss']:.6f} "
             f"val_acc={record['validation_accuracy']:.4f} "
             f"eta={record['validation_eta']:.6f} "
+            f"mean_Pin={record['validation_mean_input_power']:.6f} "
             f"seconds={record['seconds']:.2f}"
         )
 

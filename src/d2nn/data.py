@@ -53,9 +53,9 @@ def build_mnist_dataset(
 ) -> Dataset:
     """Create a torchvision MNIST dataset resized to the D2NN grid.
 
-    The model normalizes each sample to unit sum of squared amplitude. The
-    returned dataset therefore contains amplitudes in [0, 1], not pre-squared
-    intensities.
+    The returned dataset contains grayscale amplitudes in [0, 1]. These values
+    are used directly as the input field amplitude; no per-sample power
+    normalization is applied.
     """
 
     from torchvision import datasets, transforms

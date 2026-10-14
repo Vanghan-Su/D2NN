@@ -28,7 +28,9 @@ class NumpyD2NN:
     """Differentiable-compatible NumPy reference model for validation.
 
     The model does not perform training itself. It is the reference used to
-    verify the PyTorch implementation and the physics conventions.
+    verify the PyTorch implementation and the physics conventions. By default,
+    input grayscale values can be used directly as amplitudes or normalized
+    to unit power; normalize_input controls this behavior and defaults to True.
     """
 
     def __init__(
@@ -123,6 +125,8 @@ class NumpyD2NN:
         input_power = float(np.sum(np.abs(field) ** 2))
         if input_power <= 0.0:
             raise ValueError("input amplitude has zero power")
+        # The current simulation uses raw grayscale values as amplitudes.
+        # The normalized mode is retained only for legacy reference checks.
         if self.normalize_input:
             field = field * np.sqrt(1.0 / input_power)
             input_power = 1.0

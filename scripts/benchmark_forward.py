@@ -63,7 +63,7 @@ def main() -> None:
 
     if not args.no_backward:
         labels = torch.zeros(args.batch_size, dtype=torch.long, device=device)
-        loss = model.loss(output.sk, labels)
+        loss = model.loss(output.sk, labels, output.input_power)
         synchronize(device)
         start = time.perf_counter()
         loss.backward()

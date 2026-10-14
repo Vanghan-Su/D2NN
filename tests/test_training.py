@@ -57,6 +57,7 @@ class TrainingSmokeTests(unittest.TestCase):
         self.assertGreater(metrics["examples"], 0)
         self.assertTrue(0.0 <= metrics["accuracy"] <= 1.0)
         self.assertTrue(0.0 <= metrics["eta"] <= 1.0)
+        self.assertAlmostEqual(metrics["mean_input_power"], 1.0, places=6)
 
 
 if __name__ == "__main__":

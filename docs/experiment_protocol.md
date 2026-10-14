@@ -29,6 +29,14 @@
 python scripts/train.py --device cuda
 ```
 
+## 输入编码
+
+- MNIST 图像经双线性插值到 400×400 后，灰度值范围保持 [0,1]；
+- 灰度值直接作为输入复振幅的模，即 U_in(x,y)=I(x,y)；默认对每个样本做 L2 归一化，使 P_in=1；使用 `--no-normalize-input-amplitude` 时保留原始灰度振幅；
+- 每个样本的输入功率为 P_in=Σ|I(x,y)|²，而不是固定为 1；
+- 损失目标为 g_k=P_in δ(k,c)，训练循环必须把 output.input_power 传入 loss；
+- 汇聚效率定义为 eta=Σ_k s_k/P_in，其中 P_in 为该样本自身的输入功率。
+
 ## 数据划分
 
 - 训练集：MNIST train 索引 `0..599`；

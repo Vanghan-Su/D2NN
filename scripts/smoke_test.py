@@ -36,7 +36,7 @@ def main() -> None:
         size=(config.layer_count, config.field_size, config.field_size),
     )
 
-    numpy_model = NumpyD2NN(config, phases=phases, normalize_input=True)
+    numpy_model = NumpyD2NN(config, phases=phases, normalize_input=False)
     numpy_result = numpy_model.forward(amplitude, return_fields=False)
     print("numpy_prediction", numpy_result.detector.prediction)
     print("numpy_eta", numpy_result.detector.eta)
@@ -48,7 +48,11 @@ def main() -> None:
     print("torch_prediction", int(torch_result.prediction[0].item()))
     print("torch_eta", float(torch_result.eta[0].item()))
 
-    loss = torch_model.loss(torch_result.sk, torch.tensor([0], dtype=torch.long))
+    loss = torch_model.loss(
+        torch_result.sk,
+        torch.tensor([0], dtype=torch.long),
+        torch_result.input_power,
+    )
     loss.backward()
     print("torch_loss", float(loss.item()))
     print("grad_mean_abs", float(torch_model.phases.grad.abs().mean().item()))

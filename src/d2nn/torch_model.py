@@ -34,7 +34,10 @@ class TorchD2NN(nn.Module):
 
         sk = sum_{p in Dk} |U_p|^2
 
-    not the squared coherent sum of the complex field. With the default
+    not the squared coherent sum of the complex field. Input amplitudes are
+    used directly as the field amplitude; no per-sample power normalization is
+    applied. The returned ``input_power`` is therefore the sample-wise
+    ``sum |amplitude|^2`` and is also used as the target scale. With the default
     settings this class is phase-only and compatible with phase-only
     checkpoints. Setting ``train_amplitude=True`` adds a per-layer amplitude
     logit parameter and optimizes phase and amplitude simultaneously.
@@ -46,11 +49,13 @@ class TorchD2NN(nn.Module):
         phases: Optional[torch.Tensor] = None,
         amplitudes: Optional[torch.Tensor] = None,
         train_amplitude: bool = False,
-        amplitude_init: float = 1.0,
+        amplitude_init: float = 0.8,
+        normalize_input: bool = True,
     ):
         super().__init__()
         config.validate()
         self.config = config
+        self.normalize_input = bool(normalize_input)
         expected_shape = (
             config.layer_count,
             config.field_size,
@@ -193,12 +198,14 @@ class TorchD2NN(nn.Module):
     def _propagate(self, field: torch.Tensor, transfer: torch.Tensor) -> torch.Tensor:
         return torch.fft.ifft2(torch.fft.fft2(field) * transfer)
 
-    def _normalize_input(self, amplitude: torch.Tensor) -> torch.Tensor:
+    def _input_power(self, amplitude: torch.Tensor) -> torch.Tensor:
+        """Return the raw per-sample input power sum |U_in|^2."""
+
         amplitude = amplitude.to(dtype=torch.float64)
-        power = amplitude.square().sum(dim=(-2, -1), keepdim=True)
+        power = amplitude.square().sum(dim=(-2, -1))
         if torch.any(power <= 0.0):
             raise ValueError("input amplitude contains a zero-power sample")
-        return amplitude / torch.sqrt(power)
+        return power
 
     def forward(self, amplitude: torch.Tensor) -> TorchForwardResult:
         if amplitude.ndim == 2:
@@ -214,12 +221,11 @@ class TorchD2NN(nn.Module):
                 f"({self.config.field_size}, {self.config.field_size})"
             )
 
-        amplitude = self._normalize_input(amplitude)
-        input_power = torch.ones(
-            amplitude.shape[0],
-            dtype=torch.float64,
-            device=amplitude.device,
-        )
+        amplitude = amplitude.to(dtype=torch.float64)
+        input_power = self._input_power(amplitude)
+        if self.normalize_input:
+            amplitude = amplitude / torch.sqrt(input_power).reshape(-1, 1, 1)
+            input_power = torch.ones_like(input_power)
 
         field = amplitude.to(torch.complex128)
         padding_left = self._inner_start
@@ -293,13 +299,44 @@ class TorchD2NN(nn.Module):
             contrast=contrast,
         )
 
-    def loss(self, sk: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        """Mean squared loss with Pin=1 per sample in this implementation."""
+    def loss(
+        self,
+        sk: torch.Tensor,
+        labels: torch.Tensor,
+        input_power: torch.Tensor,
+        mse_weight: float = 1.0,
+    ) -> torch.Tensor:
+        """Cross-entropy plus power-normalized MSE.
+
+        The detector integrals ``sk`` are used directly as the 10 class
+        logits. The MSE term retains the physical target ``g_k = P_in *
+        delta(k, c)`` but is normalized by each sample's ``P_in**2`` so that
+        samples with different input powers contribute on a comparable scale.
+        """
 
         labels = labels.to(dtype=torch.long, device=sk.device)
-        targets = F.one_hot(labels, num_classes=len(self.config.detector_regions))
-        targets = targets.to(dtype=sk.dtype)
-        return ((sk - targets) ** 2).mean(dim=1).mean()
+        input_power = torch.as_tensor(
+            input_power,
+            dtype=sk.dtype,
+            device=sk.device,
+        ).reshape(-1)
+        if input_power.shape[0] != sk.shape[0]:
+            raise ValueError("input_power must have one value per sample")
+        if mse_weight < 0.0:
+            raise ValueError("mse_weight must be non-negative")
+
+        ce_loss = F.cross_entropy(sk, labels)
+        targets = F.one_hot(
+            labels,
+            num_classes=len(self.config.detector_regions),
+        ).to(dtype=sk.dtype)
+        targets = targets * input_power.unsqueeze(1)
+        mse_per_sample = ((sk - targets) ** 2).mean(dim=1)
+        normalized_mse = (
+            mse_per_sample
+            / input_power.square().clamp_min(torch.finfo(sk.dtype).eps)
+        ).mean()
+        return ce_loss + float(mse_weight) * normalized_mse
 
     def wrap_phases_(self) -> None:
         """Wrap trainable phases into the configured interval."""
